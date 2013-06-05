@@ -36,7 +36,7 @@ func TestMirror(t *testing.T) {
 	}
 	for _, x := range tests {
 		ta, tb := reflect.TypeOf(x.a), reflect.TypeOf(x.b)
-		if x.ok != CanConvert(ta, tb, 0) {
+		if x.ok != CanConvert(ta, tb) {
 			if x.ok {
 				t.Errorf("%s: could convert [%v] to [%v]\n",
 					x.name, ta, tb)

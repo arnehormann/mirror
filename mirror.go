@@ -40,16 +40,13 @@ func CanConvert(from, to reflect.Type) bool {
 					return false
 				}
 			case reflect.Struct:
-				if recurseStructs <= 0 && tsf.Name() != ttf.Name() {
+				if tsf.Name() != ttf.Name() {
 					return false
 				}
 				done = true
 			default:
 				done = true
 			}
-		}
-		if recurseStructs > 0 && !CanConvert(tsf, ttf, recurseStructs-1) {
-			return false
 		}
 	}
 	return true
