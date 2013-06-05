@@ -1,5 +1,6 @@
 Mirror
 ============
+[![Build Status](https://travis-ci.org/arnehormann/mirror.png?branch=master)](https://travis-ci.org/arnehormann/mirror)
 Make unsafe code safer by seeing it in the mirror.
 
 Mirror allows you to compare before you cast. Use it in `init` or with `sync.Once` to know you can safely cast a struct to another with `unsafe` because their memory layout is the same.

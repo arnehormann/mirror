@@ -2,7 +2,7 @@ Plan for CanConvertUnsafe
 ==========
 * Add tests. Lots of tests. Lots and lots of tests... You get it...
   * [ ] each possible type, first with single-type structs
-  * [ ] non exported version in `test1` and `test2`
+  * [ ] non exported version in `test/from` and `test/to`
   * [ ] interfaces in struct
   * [ ] recursion
 
