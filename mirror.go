@@ -15,8 +15,12 @@ import (
 // CanConvert returns true if the memory layout and the struct field names of
 // 'from' match those of 'to'.
 func CanConvert(from, to reflect.Type) bool {
-	if from.Kind() != reflect.Struct || from.Kind() != to.Kind() ||
-		from.Name() != to.Name() || from.NumField() != to.NumField() {
+	switch {
+	case from.Kind() != reflect.Struct,
+		from.Kind() != to.Kind(),
+		from.Size() != to.Size(),
+		from.Name() != to.Name(),
+		from.NumField() != to.NumField():
 		return false
 	}
 	for i, max := 0, from.NumField(); i < max; i++ {
