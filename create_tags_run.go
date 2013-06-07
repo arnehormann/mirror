@@ -7,7 +7,8 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
 // +build ignore
-// generate tags with 'go run tags_generate.go | go fmt > tags.go'
+
+// generate tags with 'create_tags.sh'
 
 package main
 
