@@ -1,0 +1,124 @@
+// mirror - helps to make unsafe a little safer
+//
+// Copyright 2013 Arne Hormann. All rights reserved.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at http://mozilla.org/MPL/2.0/.
+
+// This file is generated to keep it internally consistent,
+// do not edit it directly! You probably shouldn't change it.
+// The generator is run with './create_tags.sh'
+
+package mirror
+
+import (
+	"reflect"
+	"strings"
+)
+
+// binary representation of tag based configuration
+type tagflag uint
+
+const (
+	// flags and names
+~range $i, $e := .~~$n := $e.Name~
+	~flag $n~ tagflag = 1 << ~$i~
+	~name $n~ = "~$n~"
+~end~
+	// number of defined tags
+	numtags = ~len .~
+
+	// masks~range .~~$n := .Name~~$f := .Forbidden~
+	~mask $n~ = ~if .Exclusive~^~flag .Name~~else~~range $i, $e := $f~~if $i~ & ~end~^~flag $e~~else~0~end~~end~~end~
+)
+
+// flagname converts a single flag to its string representation.
+// keep in sync with tag-constants above, otherwise init panics
+func (t tagflag) name() string {
+	switch t {~range .~~$n := .Name~
+		case ~flag $n~: return ~name $n~~end~
+	}
+	// is not a single flag
+	return ""
+}
+
+// toggle mutually exclusive values, intended for default flags
+// does not do error checking
+func (t tagflag) add(setTo tagflag) tagflag {
+	// check each tag and mask forbidden others~range .~~$n := .Name~
+	if setTo & ~flag $n~ == ~flag $n~ {
+		t = t & ^ ~mask $n~
+	}~end~
+	return t
+}
+
+// get all tagflags that are set though they must not be.
+// No conflicts returns 0
+func (t tagflag) conflicts() tagflag {
+	return t & ^t.add(t)
+}
+
+~range .~~$n := .Name~
+// Has Tag "~$n~" set
+func (t tagflag) Tagged~title $n~() bool {
+	return t & ~flag $n~ == ~flag $n~
+}
+~end~
+
+// AppliesTo returns true if all set tags are applicable to k.
+func (t tagflag) AppliesTo(k reflect.Kind) bool {
+	switch {~range .~~if .Kind~~$n := .Name~
+	case t & ~flag $n~ == ~flag $n~:
+		return k == reflect.~.Kind~~end~~end~
+	default:~/* important so there's always at least one case */~
+	}
+	return true~/* for Go1.0 conformity */~
+}
+
+func (t tagflag) String() string {
+	s := ""
+	for i := 0; i < numtags; i++ {
+		if flag := tagflag(1 << i); t&flag != 0 {
+			s += flag.name() + ","
+		}
+	}
+	if s == "" {
+		return ""
+	}
+	return s[:len(s)-1]
+}
+
+func (t tagflag) StringWithDefaults(defaults tagflag) string {
+	return "tags[" + (t & ^defaults).String() +  "] and defaults [" + (defaults & ^t).String() + "]"
+}
+
+// parseTag converts a string to its flag representation.
+func parseTag(tag string) tagflag {
+	switch tag {~range .~~$n := .Name~
+		case ~name $n~: return ~flag $n~~end~
+	}
+	return 0
+}
+
+type tagError string
+
+func (e tagError) Error() string {
+	return string(e)
+}
+
+func parse(seed tagflag, tags string) (tagflag, error) {
+	// from StructField.Tag.Get("mirror")
+	t := seed
+	for _, tag := range strings.Split(",", tags) {
+		tf := parseTag(tag)
+		if tf == 0 {
+			return 0, tagError("Unknown tag '" + tag + "'")
+		}
+		t |= tf
+	}
+	if c := t.conflicts(); c != 0 {
+		return 0, tagError(t.StringWithDefaults(seed) + " conflict with [" + c.String() + "]")
+	}
+	return t, nil
+}
