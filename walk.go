@@ -38,7 +38,7 @@ func (walker *typeWalker) walk(t *reflect.StructField, visit VisitType) error {
 	stack := []stackNode{{t, idx, idx, 0, known}}
 	var node stackNode
 	for len(stack) > 0 {
-		node, stack = stack[0], stack[1:]
+		stack, node = stack[:len(stack)-2], stack[len(stack)-1]
 		err := visit(node.field, node.currentIdx, node.depth)
 		if err != nil {
 			return err
@@ -53,19 +53,17 @@ func (walker *typeWalker) walk(t *reflect.StructField, visit VisitType) error {
 		switch t := node.field.Type; t.Kind() {
 		case reflect.Struct:
 			fields := t.NumField()
-			newNodes := make([]stackNode, 0, len(stack)+fields)
-			for i := 0; i < fields; i++ {
-				// add each field from struct to stack
+			for i := fields - 1; i >= 0; i-- {
+				// add each field from struct to stack (hightest first, visiting order is reversed)
 				field := t.Field(i)
 				typeIdx, known := walker.index(field.Type)
-				newNodes = append(newNodes, stackNode{&field, typeIdx, parentIdx, depth, known})
+				stack = append(stack, stackNode{&field, typeIdx, parentIdx, depth, known})
 			}
-			newNodes = append(newNodes, stack...)
 		case reflect.Ptr, reflect.Array, reflect.Slice, reflect.Map, reflect.Chan:
 			// add element to stack
 			field := &reflect.StructField{Type: t.Elem()}
 			typeIdx, known := walker.index(field.Type)
-			stack = append([]stackNode{stackNode{field, typeIdx, parentIdx, depth, known}}, stack...)
+			stack = append(stack, stackNode{field, typeIdx, parentIdx, depth, known})
 		}
 	}
 	return nil
