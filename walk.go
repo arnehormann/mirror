@@ -38,7 +38,8 @@ func (walker *typeWalker) walk(t *reflect.StructField, visit VisitType) error {
 	stack := []stackNode{{t, idx, idx, 0, known}}
 	var node stackNode
 	for len(stack) > 0 {
-		stack, node = stack[:len(stack)-2], stack[len(stack)-1]
+		lastIdx := len(stack) - 1
+		stack, node = stack[:lastIdx], stack[lastIdx]
 		err := visit(node.field, node.currentIdx, node.depth)
 		if err != nil {
 			return err
