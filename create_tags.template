@@ -8,7 +8,8 @@
 
 // This file is generated to keep it internally consistent,
 // do not edit it directly! You probably shouldn't change it.
-// The generator is run with './create_tags.sh'
+// The generator is run from the branch 'taggenerator'
+// with './create_tags.sh'
 
 package mirror
 
