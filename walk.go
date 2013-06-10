@@ -65,7 +65,7 @@ func (walker *typeWalker) walk(t *reflect.StructField, visit VisitType) error {
 			// add element to stack
 			field := &reflect.StructField{Type: t.Elem()}
 			typeIdx, known := walker.index(field.Type)
-			stack = append([]stackNode{stackNode{&field, typeIdx, parentIdx, depth, known}}, stack...)
+			stack = append([]stackNode{stackNode{field, typeIdx, parentIdx, depth, known}}, stack...)
 		}
 	}
 	return nil
