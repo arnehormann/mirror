@@ -3,10 +3,6 @@ Mirror
 [![Build Status](https://travis-ci.org/arnehormann/mirror.png?branch=master)](https://travis-ci.org/arnehormann/mirror)
 Make unsafe code safer by seeing it in the mirror.
 
-Mirror allows you to compare before you cast. Use it in `init` or with `sync.Once` to know you can safely cast a struct to another with `unsafe` because their memory layout is the same.
+This branch of [mirror](https://github.com/arnehormann/mirror) only contains the tag generator used to create `tags.go`. The file is generated because it contains tedious repetitions that simply should not be written by hand.
 
-Access unexported fields without a headache. It may even be rather safe if you only read from them.
-
-Documentation lives at [godoc.org](http://godoc.org/github.com/arnehormann/mirror).
-
-License: [MPL2](https://github.com/arnehormann/mirror/blob/master/LICENSE.md).
+If you need to change tags.go, this is the right place for you. Otherwise, please switch to the [master branch](https://github.com/arnehormann/mirror).
