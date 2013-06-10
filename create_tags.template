@@ -78,7 +78,7 @@ func (t tagflag) AppliesTo(k reflect.Kind) bool {
 
 func (t tagflag) String() string {
 	s := ""
-	for i := 0; i < numtags; i++ {
+	for i := uint(0); i < numtags; i++ {
 		if flag := tagflag(1 << i); t&flag != 0 {
 			s += flag.name() + ","
 		}
