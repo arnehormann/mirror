@@ -7,6 +7,7 @@ import (
 	"testing"
 )
 
+/*
 func TestDatabase(t *testing.T) {
 	// not a real test yet...
 	Walk(reflect.TypeOf(&sql.Row{}), func(t *reflect.StructField, typeIndex, depth int) error {
@@ -14,3 +15,4 @@ func TestDatabase(t *testing.T) {
 		return nil
 	})
 }
+*/
