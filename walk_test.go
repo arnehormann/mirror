@@ -1,18 +1,23 @@
 package mirror
 
 import (
-	"database/sql"
-	"fmt"
 	"reflect"
 	"testing"
 )
 
-/*
-func TestDatabase(t *testing.T) {
-	// not a real test yet...
-	Walk(reflect.TypeOf(&sql.Row{}), func(t *reflect.StructField, typeIndex, depth int) error {
-		fmt.Printf("%4d/%4d:\t%v\n", typeIndex, depth, t)
-		return nil
-	})
+func TestBasics(t *testing.T) {
+	expectBasic := []interface{}{
+		int8(0), uint8(0), int(0), int64(0),
+		float64(0), complex128(0),
+		' ', " ",
+	}
+	for _, v := range expectBasic {
+		tv := reflect.TypeOf(v)
+		Walk(tv, func(typ *reflect.StructField, typeIndex, depth int) error {
+			if tv != typ.Type {
+				t.Errorf("%v != %v\n", tv, typ.Type)
+			}
+			return nil
+		})
+	}
 }
-*/
