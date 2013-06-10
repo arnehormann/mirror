@@ -37,8 +37,7 @@ func (walker *typeWalker) walk(t *reflect.StructField, visit VisitType) error {
 	idx, known := walker.index(t.Type)
 	stack := []stackNode{{t, idx, idx, 0, known}}
 	var node stackNode
-	for len(stack) > 0 {
-		lastIdx := len(stack) - 1
+	for lastIdx := 0; lastIdx >= 0; lastIdx = len(stack) - 1 {
 		stack, node = stack[:lastIdx], stack[lastIdx]
 		err := visit(node.field, node.currentIdx, node.depth)
 		if err != nil {
@@ -50,7 +49,7 @@ func (walker *typeWalker) walk(t *reflect.StructField, visit VisitType) error {
 		}
 		// follow container types
 		parentIdx := node.currentIdx
-		depth := node.depth + 1
+		depth := node.depth
 		switch t := node.field.Type; t.Kind() {
 		case reflect.Struct:
 			fields := t.NumField()
