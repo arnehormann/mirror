@@ -35,10 +35,7 @@ func (walker *typeWalker) walk(t *reflect.StructField, visit VisitType) error {
 		known      bool
 	}
 	addNodes := func(stack []stackNode, nodes ...stackNode) []stackNode {
-		result := append(stack, nodes...)
-		copy(result[:len(stack)], result[len(nodes):])
-		copy(nodes, stack[:len(nodes)])
-		return result
+		return append(nodes, stack...)
 	}
 	idx, known := walker.index(t.Type)
 	stack := []stackNode{{t, idx, idx, 0, known}}
