@@ -81,6 +81,7 @@ type typeSession struct {
 func (server TypeServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	const submit = `<form method="post"><button type="submit">Next</button></form>`
 	if req.Method != "POST" {
+		// serve form on GET requests so favicon.ico and co don't skip object under inspection
 		resp.Write([]byte(`<!DOCTYPE html><html><body>` + submit + `</body></html>`))
 		return
 	}
