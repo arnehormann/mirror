@@ -1,14 +1,45 @@
-package main
+package httpexport
 
 import (
 	"bufio"
 	"fmt"
 	"github.com/arnehormann/mirror"
 	"net/http"
-	"os/exec"
 	"reflect"
-	"runtime"
 )
+
+type TypeWriter func(s *typeSession, t reflect.Type, req *http.Request) error
+
+type TypeServer struct {
+	feed  <-chan interface{}
+	write TypeWriter
+}
+
+type typeSession struct {
+	depth int
+	buf   *bufio.Writer
+}
+
+func (server TypeServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	session := &typeSession{
+		depth: 0,
+		buf:   bufio.NewWriter(resp),
+	}
+	readType := reflect.TypeOf(<-server.feed)
+	err := server.write(session, readType, req)
+	if err != nil {
+		panic(err)
+	}
+	session.buf.Flush()
+}
+
+func ServeTypeViewer(addr string, inchan <-chan interface{}) {
+	server := TypeServer{feed: inchan, write: HTMLTypeWriter}
+	err := http.ListenAndServe(addr, server)
+	if err != nil {
+		panic(err)
+	}
+}
 
 const css = `
 div[data-kind] {
@@ -44,69 +75,31 @@ div[data-kind=struct] {
 div[data-kind]::before {
 	content: attr(data-kind);
 	position: relative;
-}
-`
+}`
 
-func loadBrowser(addr string) {
-	cliOpener := "open"
-	if runtime.GOOS == "windows" {
-		cliOpener = "start"
-	}
-	_ = exec.Command(cliOpener, "http://localhost"+addr).Run()
-}
-
-func main() {
-	addr := ":8080"
-	fmt.Println("Serving on " + addr)
-	typechan := make(chan interface{})
-	go ServeTypeViewer(addr, typechan)
-	fmt.Println("Started!")
-	loadBrowser(addr)
-	for {
-		// cycle through these values...
-		typechan <- &reflect.StructField{}
-		typechan <- complex128(0)
-		typechan <- reflect.Value{}
-		typechan <- ""
-	}
-}
-
-type TypeServer <-chan interface{}
-
-type typeSession struct {
-	depth int
-	buf   *bufio.Writer
-}
-
-func (server TypeServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+func HTMLTypeWriter(session *typeSession, t reflect.Type, req *http.Request) error {
 	const submit = `<form method="post"><button type="submit">Next</button></form>`
 	if req.Method != "POST" {
 		// serve form on GET requests so favicon.ico and co don't skip object under inspection
-		resp.Write([]byte(`<!DOCTYPE html><html><body>` + submit + `</body></html>`))
-		return
-	}
-	// we ignore the request and serve the next object from the channel
-	readType := reflect.TypeOf(<-server)
-	session := &typeSession{
-		depth: 0,
-		buf:   bufio.NewWriter(resp),
+		session.buf.WriteString(`<!DOCTYPE html><html><body>` + submit + `</body></html>`)
+		return nil
 	}
 	// write leading...
 	session.buf.WriteString(fmt.Sprintf(`<!DOCTYPE html>
 <html><head><title>Go: '%s'</title><style>
 `+css+`
-</style></head><body>`+submit, readType))
+</style></head><body>`+submit, t))
 	// ignore errors for the calls; we can't reasonably handle them unless we add a buffer
-	_ = mirror.Walk(readType, session.typeToHTML)
+	_ = mirror.Walk(t, session.typeToHTML)
 	// close all tags
 	_ = session.typeToHTML(nil, 0, 0)
-	_ = session.closeTagsToDepth(0)
+	_ = session.closeHtmlTagsToDepth(0)
 	// write closing code...
 	_, _ = session.buf.WriteString(`</body></html>`)
-	_ = session.buf.Flush()
+	return nil
 }
 
-func (session *typeSession) closeTagsToDepth(depth int) error {
+func (session *typeSession) closeHtmlTagsToDepth(depth int) error {
 	for d := session.depth - depth; d > 0; d-- {
 		_, err := session.buf.WriteString("</div>")
 		if err != nil {
@@ -118,7 +111,7 @@ func (session *typeSession) closeTagsToDepth(depth int) error {
 
 func (session *typeSession) typeToHTML(t *reflect.StructField, typeIndex, depth int) error {
 	// for now, we are error-ignorant
-	_ = session.closeTagsToDepth(depth - 1)
+	_ = session.closeHtmlTagsToDepth(depth - 1)
 	if t == nil {
 		return nil
 	}
@@ -157,12 +150,4 @@ func (session *typeSession) typeToHTML(t *reflect.StructField, typeIndex, depth 
 		tt, tt.Size(), typeIndex))
 	session.depth = depth
 	return nil
-}
-
-func ServeTypeViewer(addr string, inchan <-chan interface{}) {
-	server := TypeServer(inchan)
-	err := http.ListenAndServe(addr, server)
-	if err != nil {
-		panic(err)
-	}
 }
