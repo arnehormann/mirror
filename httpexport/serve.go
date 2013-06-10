@@ -117,6 +117,7 @@ func (session *typeSession) closeTagsToDepth(depth int) error {
 }
 
 func (session *typeSession) typeToHTML(t *reflect.StructField, typeIndex, depth int) error {
+	// for now, we are error-ignorant
 	_ = session.closeTagsToDepth(depth - 1)
 	if t == nil {
 		return nil
