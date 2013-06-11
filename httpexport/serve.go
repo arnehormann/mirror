@@ -86,35 +86,19 @@ div[data-kind] {
 	padding: 0.2em;
 	background-color: #eee
 }
-div[data-kind=ptr] {
-	background-color: #ccc
-}
-div[data-kind=array] {
-	background-color: #c7c7f7
-}
-div[data-kind=slice] {
-	background-color: #ccccff
-}
-div[data-kind=chan] {
-	background-color: #fcc
-}
-div[data-kind=map] {
-	background-color: #cfc
-}
-div[data-kind=func] {
-	background-color: #ffc
-}
-div[data-kind=interface] {
-	background-color: #cff
-}
-div[data-kind=struct] {
-	background-color: #ddd
-}
 div[data-kind]::before {
 	content: attr(data-kind) ': ' attr(data-field) ' ' attr(data-type);
 	position: relative;
 	margin-left: 1em;
 }
+div[data-kind=ptr]			{ background-color: #cccccc }
+div[data-kind=array]		{ background-color: #c7c7f7 }
+div[data-kind=slice]		{ background-color: #ccccff }
+div[data-kind=chan]			{ background-color: #ffcccc }
+div[data-kind=map]			{ background-color: #ccffcc }
+div[data-kind=func]			{ background-color: #ffffcc }
+div[data-kind=interface]	{ background-color: #ccffff }
+div[data-kind=struct]		{ background-color: #dddddd }
 </style></head><body>%s`, *t, submit)
 	typeToHtml := func(t *reflect.StructField, typeIndex, depth int) error {
 		// for now, we are error-ignorant
