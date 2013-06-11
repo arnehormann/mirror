@@ -60,7 +60,7 @@ func TestCompound(t *testing.T) {
 		`4:int,int,[],,,false`,
 		`3:interface,interface {},[1],v,tag,false`,
 	}
-	// we have to do it this way to avoid conversion errors by git (\n to \r\n)
+	// used instead of a literal string to avoid conversion errors by git (\n to \r\n)
 	expect := "\n" + strings.Join(typeStrings, "\n")
 	if asString != expect {
 		t.Error("walked compound type did not match")
