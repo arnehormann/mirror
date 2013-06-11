@@ -49,7 +49,7 @@ func (walker *typeWalker) walk(t *reflect.StructField, visit VisitType) error {
 		}
 		// follow container types
 		parentIdx := node.currentIdx
-		depth := node.depth
+		depth := node.depth + 1
 		switch t := node.field.Type; t.Kind() {
 		case reflect.Struct:
 			fields := t.NumField()
