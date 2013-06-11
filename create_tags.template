@@ -62,13 +62,13 @@ func (t tagflag) conflicts() tagflag {
 
 ~range .~~$n := .Name~
 // Has Tag "~$n~" set
-func (t tagflag) Tagged~title $n~() bool {
+func (t tagflag) tagged~title $n~() bool {
 	return t & ~flag $n~ == ~flag $n~
 }
 ~end~
 
-// AppliesTo returns true if all set tags are applicable to k.
-func (t tagflag) AppliesTo(k reflect.Kind) bool {
+// appliesTo returns true if all set tags are applicable to k.
+func (t tagflag) appliesTo(k reflect.Kind) bool {
 	switch {~range .~~if .Kind~~$n := .Name~
 	case t & ~flag $n~ == ~flag $n~:
 		return k == reflect.~.Kind~~end~~end~
@@ -90,7 +90,7 @@ func (t tagflag) String() string {
 	return s[:len(s)-1]
 }
 
-func (t tagflag) StringWithDefaults(defaults tagflag) string {
+func (t tagflag) stringWithDefaults(defaults tagflag) string {
 	return "tags[" + (t & ^defaults).String() +  "] and defaults [" + (defaults & ^t).String() + "]"
 }
 
@@ -119,7 +119,7 @@ func parse(seed tagflag, tags string) (tagflag, error) {
 		t |= tf
 	}
 	if c := t.conflicts(); c != 0 {
-		return 0, tagError(t.StringWithDefaults(seed) + " conflict with [" + c.String() + "]")
+		return 0, tagError(t.stringWithDefaults(seed) + " conflict with [" + c.String() + "]")
 	}
 	return t, nil
 }
