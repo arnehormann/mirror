@@ -117,6 +117,8 @@ div[data-kind=struct]		{ border-color: #dddddd; }
 		if session.depth > depth {
 			session.Concat(strings.Repeat("</div>", session.depth-depth))
 		}
+		// close this tag later
+		session.depth = depth + 1
 		// if no type is given, return
 		if t == nil {
 			return nil
@@ -127,7 +129,7 @@ div[data-kind=struct]		{ border-color: #dddddd; }
 			tt.Kind(), tt, tt.Size(), typeIndex)
 		if len(t.Index) > 0 {
 			session.Concatf(
-				` data-field="%s" data-index="%v" data-offset="%d" data-tag="%s" `,
+				` data-field="%s" data-index="%v" data-offset="%d" data-tag="%s"`,
 				t.Name, t.Index, t.Offset, t.Tag)
 		}
 		switch tt.Kind() {
@@ -150,7 +152,6 @@ div[data-kind=struct]		{ border-color: #dddddd; }
 			session.Concatf(` data-args-in="%d" data-args-out="%d"`, tt.NumIn(), tt.NumOut())
 		}
 		session.Concat(`>`)
-		session.depth = depth
 		return session.err
 	}
 	// ignore errors for the calls; we can't reasonably handle them unless we add a buffer
