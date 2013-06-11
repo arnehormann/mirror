@@ -4,15 +4,28 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/arnehormann/mirror"
+	"io"
 	"net/http"
 	"reflect"
 )
 
-type TypeWriter func(s *typeSession, t reflect.Type, req *http.Request) error
+func NewTypeServer(addr string) chan<- interface{} {
+	typechan := make(chan interface{})
+	go func(addr string, inchan <-chan interface{}) {
+		server := typeServer{feed: inchan, write: htmlTypeWriter}
+		err := http.ListenAndServe(addr, server)
+		if err != nil {
+			panic(err)
+		}
+	}(addr, typechan)
+	return typechan
+}
 
-type TypeServer struct {
+type typeWriter func(s *typeSession, t *reflect.Type) error
+
+type typeServer struct {
 	feed  <-chan interface{}
-	write TypeWriter
+	write typeWriter
 }
 
 type typeSession struct {
@@ -20,28 +33,47 @@ type typeSession struct {
 	buf   *bufio.Writer
 }
 
-func (server TypeServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+func (server typeServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	session := &typeSession{
 		depth: 0,
 		buf:   bufio.NewWriter(resp),
 	}
-	readType := reflect.TypeOf(<-server.feed)
-	err := server.write(session, readType, req)
-	if err != nil {
-		panic(err)
+	var t *reflect.Type
+	if req.Method == "POST" {
+		readType := reflect.TypeOf(<-server.feed)
+		t = &readType
 	}
+	must(server.write(session, t))
 	session.buf.Flush()
 }
 
-func ServeTypeViewer(addr string, inchan <-chan interface{}) {
-	server := TypeServer{feed: inchan, write: HTMLTypeWriter}
-	err := http.ListenAndServe(addr, server)
+func must(err error) {
 	if err != nil {
 		panic(err)
 	}
 }
 
-const css = `
+func mustIO(processed int, err error) {
+	switch {
+	case err == nil, err == io.EOF:
+		return
+	}
+	panic(err)
+}
+
+// code for html type export
+
+func htmlTypeWriter(session *typeSession, t *reflect.Type) error {
+	const submit = `<form method="post"><button type="submit">Next</button></form>`
+	if t == nil {
+		// serve form on GET requests so favicon.ico and co don't skip object under inspection
+		mustIO(session.buf.WriteString(`<!DOCTYPE html><html><body>` + submit + `</body></html>`))
+		return nil
+	}
+	// write leading...
+	mustIO(session.buf.WriteString(fmt.Sprintf(`
+<!DOCTYPE html>
+<html><head><title>Go: '%s'</title><style>
 div[data-kind] {
 	position: relative;
 	border: 1px solid red;
@@ -73,34 +105,23 @@ div[data-kind=struct] {
 	background-color: #ddd
 }
 div[data-kind]::before {
-	content: attr(data-kind);
+	content: attr(data-kind) ': ' attr(data-field) ' ' attr(data-type);
 	position: relative;
-}`
-
-func HTMLTypeWriter(session *typeSession, t reflect.Type, req *http.Request) error {
-	const submit = `<form method="post"><button type="submit">Next</button></form>`
-	if req.Method != "POST" {
-		// serve form on GET requests so favicon.ico and co don't skip object under inspection
-		session.buf.WriteString(`<!DOCTYPE html><html><body>` + submit + `</body></html>`)
-		return nil
-	}
-	// write leading...
-	session.buf.WriteString(fmt.Sprintf(`<!DOCTYPE html>
-<html><head><title>Go: '%s'</title><style>
-`+css+`
-</style></head><body>`+submit, t))
+	margin-left: 1em;
+}
+</style></head><body>%s`, t, submit)))
 	// ignore errors for the calls; we can't reasonably handle them unless we add a buffer
-	_ = mirror.Walk(t, session.typeToHTML)
+	must(mirror.Walk(*t, session.typeToHTML))
 	// close all tags
-	_ = session.typeToHTML(nil, 0, 0)
-	_ = session.closeHtmlTagsToDepth(0)
+	must(session.typeToHTML(nil, 0, 0))
+	must(session.closeHtmlTagsToDepth(0))
 	// write closing code...
-	_, _ = session.buf.WriteString(`</body></html>`)
+	mustIO(session.buf.WriteString(`</body></html>`))
 	return nil
 }
 
 func (session *typeSession) closeHtmlTagsToDepth(depth int) error {
-	for d := session.depth - depth; d > 0; d-- {
+	for d := session.depth - depth; d >= 0; d-- {
 		_, err := session.buf.WriteString("</div>")
 		if err != nil {
 			return err
@@ -111,17 +132,18 @@ func (session *typeSession) closeHtmlTagsToDepth(depth int) error {
 
 func (session *typeSession) typeToHTML(t *reflect.StructField, typeIndex, depth int) error {
 	// for now, we are error-ignorant
-	_ = session.closeHtmlTagsToDepth(depth - 1)
+	must(session.closeHtmlTagsToDepth(depth))
 	if t == nil {
 		return nil
 	}
 	tt := t.Type
-	_, _ = session.buf.WriteString(fmt.Sprintf(
-		`<div data-kind="%s"`, tt.Kind()))
+	mustIO(session.buf.WriteString(fmt.Sprintf(
+		`<div data-kind="%s" data-type="%s" data-size="%d" data-typeid="%d"`,
+		tt.Kind(), tt, tt.Size(), typeIndex)))
 	if len(t.Index) > 0 {
-		_, _ = session.buf.WriteString(fmt.Sprintf(
+		mustIO(session.buf.WriteString(fmt.Sprintf(
 			` data-field="%s" data-index="%v" data-offset="%d" data-tag="%s" `,
-			t.Name, t.Index, t.Offset, t.Tag))
+			t.Name, t.Index, t.Offset, t.Tag)))
 	}
 	switch tt.Kind() {
 	case reflect.Chan:
@@ -136,18 +158,16 @@ func (session *typeSession) typeToHTML(t *reflect.StructField, typeIndex, depth 
 		}
 		session.buf.WriteString(` data-direction="` + direction + `"`)
 	case reflect.Map:
-		_, _ = session.buf.WriteString(fmt.Sprintf(
-			` data-keytype="%s"`, tt.Key()))
+		mustIO(session.buf.WriteString(fmt.Sprintf(
+			` data-keytype="%s"`, tt.Key())))
 	case reflect.Array:
-		_, _ = session.buf.WriteString(fmt.Sprintf(
-			` data-length="%d"`, tt.Len()))
+		mustIO(session.buf.WriteString(fmt.Sprintf(
+			` data-length="%d"`, tt.Len())))
 	case reflect.Func:
-		_, _ = session.buf.WriteString(fmt.Sprintf(
-			` data-args-in="%d" data-args-out="%d"`, tt.NumIn(), tt.NumOut()))
+		mustIO(session.buf.WriteString(fmt.Sprintf(
+			` data-args-in="%d" data-args-out="%d"`, tt.NumIn(), tt.NumOut())))
 	}
-	_, _ = session.buf.WriteString(fmt.Sprintf(
-		` data-type="%v" data-size="%d" data-typeid="%d">`,
-		tt, tt.Size(), typeIndex))
+	mustIO(session.buf.WriteString(`>`))
 	session.depth = depth
 	return nil
 }
