@@ -136,7 +136,16 @@ div[data-kind=struct]			{ border-color: #8Ab048; }
 div[data-kind=chan]				{ border-color: #9c0c40; }
 div[data-kind=interface]		{ border-color: #5d277d; }
 div[data-kind=func]				{ border-color: #7d0a72; }
-</style></head><body>%s`, *t, submit)
+
+.parent { color: red; }
+.hide * { display: none; }
+.parent.hide::after {
+	color: blue;
+	content: ' [+]';
+}
+
+</style>
+</head><body>%s`, *t, submit)
 	typeToHtml := func(t *reflect.StructField, typeIndex, depth int) error {
 		// for now, we are error-ignorant
 		// close open tags
@@ -149,6 +158,9 @@ div[data-kind=func]				{ border-color: #7d0a72; }
 		if t == nil {
 			return nil
 		}
+
+		classes := ""
+
 		tt := t.Type
 		session.Concatf(
 			`<div data-kind="%s" data-type="%s" data-size="%d" data-typeid="%d"`,
@@ -159,6 +171,9 @@ div[data-kind=func]				{ border-color: #7d0a72; }
 				t.Name, t.Index, t.Offset, t.Tag)
 		}
 		switch tt.Kind() {
+		case reflect.Array:
+			session.Concatf(` data-length="%d"`, tt.Len())
+			classes += "parent "
 		case reflect.Chan:
 			var direction string
 			switch tt.ChanDir() {
@@ -170,14 +185,18 @@ div[data-kind=func]				{ border-color: #7d0a72; }
 				direction = "both"
 			}
 			session.Concat(` data-direction="` + direction + `"`)
+			classes += "parent "
 		case reflect.Map:
 			session.Concatf(` data-keytype="%s"`, tt.Key())
-		case reflect.Array:
-			session.Concatf(` data-length="%d"`, tt.Len())
+			classes += "parent "
+
 		case reflect.Func:
 			session.Concatf(` data-args-in="%d" data-args-out="%d"`, tt.NumIn(), tt.NumOut())
+
+		case reflect.Ptr, reflect.Slice, reflect.Struct:
+			classes += "parent "
 		}
-		session.Concat(`>`)
+		session.Concat(` class="` + classes + `">`)
 		return session.err
 	}
 	// ignore errors for the calls; we can't reasonably handle them unless we add a buffer
@@ -188,6 +207,19 @@ div[data-kind=func]				{ border-color: #7d0a72; }
 	// close all tags
 	session.err = typeToHtml(nil, 0, 0)
 	// write closing code...
-	session.Concat(`</body></html>`)
+	session.Concat(`
+<script>
+var parents = document.getElementsByClassName('parent');
+for(var i = 0; i < parents.length; i++) {
+    parents[i].onclick = function(e) {
+    	e.stopPropagation();
+
+    	// toggle class 'hide'
+    	this.className = (this.classList.contains('hide')) ?
+    		this.className.replace(/hide/,'') :
+    		this.className += ' hide';
+    }
+}
+</script></body></html>`)
 	return session.err
 }
