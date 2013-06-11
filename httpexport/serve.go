@@ -4,9 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/arnehormann/mirror"
-	"io"
 	"net/http"
 	"reflect"
+	"strings"
 )
 
 func NewTypeServer(addr string) chan<- interface{} {
@@ -31,6 +31,7 @@ type typeServer struct {
 type typeSession struct {
 	depth int
 	buf   *bufio.Writer
+	err   error
 }
 
 func (server typeServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
@@ -43,22 +44,27 @@ func (server typeServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) 
 		readType := reflect.TypeOf(<-server.feed)
 		t = &readType
 	}
-	must(server.write(session, t))
-	session.buf.Flush()
-}
-
-func must(err error) {
+	err := server.write(session, t)
 	if err != nil {
 		panic(err)
 	}
+	session.buf.Flush()
 }
 
-func mustIO(processed int, err error) {
-	switch {
-	case err == nil, err == io.EOF:
+func (session *typeSession) Concat(text string) {
+	if session.err != nil {
 		return
 	}
-	panic(err)
+	_, err := session.buf.WriteString(text)
+	session.err = err
+}
+
+func (session *typeSession) Concatf(format string, args ...interface{}) {
+	if session.err != nil {
+		return
+	}
+	_, err := session.buf.WriteString(fmt.Sprintf(format, args...))
+	session.err = err
 }
 
 // code for html type export
@@ -67,11 +73,11 @@ func htmlTypeWriter(session *typeSession, t *reflect.Type) error {
 	const submit = `<form method="post"><button type="submit">Next</button></form>`
 	if t == nil {
 		// serve form on GET requests so favicon.ico and co don't skip object under inspection
-		mustIO(session.buf.WriteString(`<!DOCTYPE html><html><body>` + submit + `</body></html>`))
-		return nil
+		session.Concat(`<!DOCTYPE html><html><body>` + submit + `</body></html>`)
+		return session.err
 	}
 	// write leading...
-	mustIO(session.buf.WriteString(fmt.Sprintf(`
+	session.Concatf(`
 <!DOCTYPE html>
 <html><head><title>Go: '%s'</title><style>
 div[data-kind] {
@@ -109,65 +115,57 @@ div[data-kind]::before {
 	position: relative;
 	margin-left: 1em;
 }
-</style></head><body>%s`, t, submit)))
+</style></head><body>%s`, *t, submit)
+	typeToHtml := func(t *reflect.StructField, typeIndex, depth int) error {
+		// for now, we are error-ignorant
+		// close open tags
+		if session.depth > depth {
+			session.Concat(strings.Repeat("</div>", session.depth-depth))
+		}
+		// if no type is given, return
+		if t == nil {
+			return nil
+		}
+		tt := t.Type
+		session.Concatf(
+			`<div data-kind="%s" data-type="%s" data-size="%d" data-typeid="%d"`,
+			tt.Kind(), tt, tt.Size(), typeIndex)
+		if len(t.Index) > 0 {
+			session.Concatf(
+				` data-field="%s" data-index="%v" data-offset="%d" data-tag="%s" `,
+				t.Name, t.Index, t.Offset, t.Tag)
+		}
+		switch tt.Kind() {
+		case reflect.Chan:
+			var direction string
+			switch tt.ChanDir() {
+			case reflect.RecvDir:
+				direction = "receive"
+			case reflect.SendDir:
+				direction = "send"
+			case reflect.BothDir:
+				direction = "both"
+			}
+			session.Concat(` data-direction="` + direction + `"`)
+		case reflect.Map:
+			session.Concatf(` data-keytype="%s"`, tt.Key())
+		case reflect.Array:
+			session.Concatf(` data-length="%d"`, tt.Len())
+		case reflect.Func:
+			session.Concatf(` data-args-in="%d" data-args-out="%d"`, tt.NumIn(), tt.NumOut())
+		}
+		session.Concat(`>`)
+		session.depth = depth
+		return session.err
+	}
 	// ignore errors for the calls; we can't reasonably handle them unless we add a buffer
-	must(mirror.Walk(*t, session.typeToHTML))
+	session.err = mirror.Walk(*t, typeToHtml)
+	if session.err != nil {
+		return session.err
+	}
 	// close all tags
-	must(session.typeToHTML(nil, 0, 0))
-	must(session.closeHtmlTagsToDepth(0))
+	session.err = typeToHtml(nil, 0, 0)
 	// write closing code...
-	mustIO(session.buf.WriteString(`</body></html>`))
-	return nil
-}
-
-func (session *typeSession) closeHtmlTagsToDepth(depth int) error {
-	for d := session.depth - depth; d >= 0; d-- {
-		_, err := session.buf.WriteString("</div>")
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (session *typeSession) typeToHTML(t *reflect.StructField, typeIndex, depth int) error {
-	// for now, we are error-ignorant
-	must(session.closeHtmlTagsToDepth(depth))
-	if t == nil {
-		return nil
-	}
-	tt := t.Type
-	mustIO(session.buf.WriteString(fmt.Sprintf(
-		`<div data-kind="%s" data-type="%s" data-size="%d" data-typeid="%d"`,
-		tt.Kind(), tt, tt.Size(), typeIndex)))
-	if len(t.Index) > 0 {
-		mustIO(session.buf.WriteString(fmt.Sprintf(
-			` data-field="%s" data-index="%v" data-offset="%d" data-tag="%s" `,
-			t.Name, t.Index, t.Offset, t.Tag)))
-	}
-	switch tt.Kind() {
-	case reflect.Chan:
-		var direction string
-		switch tt.ChanDir() {
-		case reflect.RecvDir:
-			direction = "receive"
-		case reflect.SendDir:
-			direction = "send"
-		case reflect.BothDir:
-			direction = "both"
-		}
-		session.buf.WriteString(` data-direction="` + direction + `"`)
-	case reflect.Map:
-		mustIO(session.buf.WriteString(fmt.Sprintf(
-			` data-keytype="%s"`, tt.Key())))
-	case reflect.Array:
-		mustIO(session.buf.WriteString(fmt.Sprintf(
-			` data-length="%d"`, tt.Len())))
-	case reflect.Func:
-		mustIO(session.buf.WriteString(fmt.Sprintf(
-			` data-args-in="%d" data-args-out="%d"`, tt.NumIn(), tt.NumOut())))
-	}
-	mustIO(session.buf.WriteString(`>`))
-	session.depth = depth
-	return nil
+	session.Concat(`</body></html>`)
+	return session.err
 }
