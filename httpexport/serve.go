@@ -102,14 +102,40 @@ div[data-kind]::before {
 	position: relative;
 	margin-left: 1em;
 }
-div[data-kind=ptr]			{ border-color: #cccccc; }
-div[data-kind=array]		{ border-color: #c7c7f7; }
-div[data-kind=slice]		{ border-color: #ccccff; }
-div[data-kind=chan]			{ border-color: #ffcccc; }
-div[data-kind=map]			{ border-color: #ccffcc; }
-div[data-kind=func]			{ border-color: #ffffcc; }
-div[data-kind=interface]	{ border-color: #ccffff; }
-div[data-kind=struct]		{ border-color: #dddddd; }
+div[data-kind=int8],
+div[data-kind=int16],
+div[data-kind=int32],
+div[data-kind=int64],
+div[data-kind=int]				{ border-color: #0f808c; }
+
+div[data-kind=uint8],
+div[data-kind=uint16],
+div[data-kind=uint32],
+div[data-kind=uint64],
+div[data-kind=uint]				{ border-color: #198c6f; }
+
+div[data-kind=float32],
+div[data-kind=float64]			{ border-color: #5b8c39; }
+
+div[data-kind=complex64],
+div[data-kind=complex128]		{ border-color: #778c1b; }
+
+div[data-kind=bool]				{ border-color: #19758c; }
+div[data-kind=rune]				{ border-color: #4e398c; }
+div[data-kind=ptr]				{ border-color: #d96485; }
+
+div[data-kind=uintptr],
+div[data-kind=unsafe.Pointer]	{ border-color: #d91d29; }
+
+div[data-kind=array],
+div[data-kind=slice]			{ border-color: #f29a19; }
+
+div[data-kind=string]			{ border-color: #40478c; }
+div[data-kind=map]				{ border-color: #f2C91f; }
+div[data-kind=struct]			{ border-color: #8Ab048; }
+div[data-kind=chan]				{ border-color: #9c0c40; }
+div[data-kind=interface]		{ border-color: #5d277d; }
+div[data-kind=func]				{ border-color: #7d0a72; }
 </style></head><body>%s`, *t, submit)
 	typeToHtml := func(t *reflect.StructField, typeIndex, depth int) error {
 		// for now, we are error-ignorant
