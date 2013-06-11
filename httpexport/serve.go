@@ -125,7 +125,7 @@ div[data-kind=rune]				{ border-color: #4e398c; }
 div[data-kind=ptr]				{ border-color: #d96485; }
 
 div[data-kind=uintptr],
-div[data-kind=unsafe.Pointer]	{ border-color: #d91d29; }
+div[data-kind="unsafe.Pointer"]	{ border-color: #d91d29; }
 
 div[data-kind=array],
 div[data-kind=slice]			{ border-color: #f29a19; }
