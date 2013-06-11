@@ -80,25 +80,36 @@ func htmlTypeWriter(session *typeSession, t *reflect.Type) error {
 	session.Concatf(`
 <!DOCTYPE html>
 <html><head><title>Go: '%s'</title><style>
+html { background-color: #fafafa; }
 div[data-kind] {
+	box-sizing: border-box;
 	position: relative;
-	border: 1px solid red;
-	padding: 0.2em;
-	background-color: #eee
+	/* font */
+	font-family: "HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif;
+	font-weight: 300;
+	font-size: 16px;
+	line-height: 1.5em;
+	color: #444444;
+	/* defaults */
+	border: none;
+	border-color: #eeeeee;
+	border-left: 1.5em solid;
+	border-top: 4px solid;
+	padding: 0.5em 0 0 0.5em;
 }
 div[data-kind]::before {
 	content: attr(data-kind) ': ' attr(data-field) ' ' attr(data-type);
 	position: relative;
 	margin-left: 1em;
 }
-div[data-kind=ptr]			{ background-color: #cccccc }
-div[data-kind=array]		{ background-color: #c7c7f7 }
-div[data-kind=slice]		{ background-color: #ccccff }
-div[data-kind=chan]			{ background-color: #ffcccc }
-div[data-kind=map]			{ background-color: #ccffcc }
-div[data-kind=func]			{ background-color: #ffffcc }
-div[data-kind=interface]	{ background-color: #ccffff }
-div[data-kind=struct]		{ background-color: #dddddd }
+div[data-kind=ptr]			{ border-color: #cccccc; }
+div[data-kind=array]		{ border-color: #c7c7f7; }
+div[data-kind=slice]		{ border-color: #ccccff; }
+div[data-kind=chan]			{ border-color: #ffcccc; }
+div[data-kind=map]			{ border-color: #ccffcc; }
+div[data-kind=func]			{ border-color: #ffffcc; }
+div[data-kind=interface]	{ border-color: #ccffff; }
+div[data-kind=struct]		{ border-color: #dddddd; }
 </style></head><body>%s`, *t, submit)
 	typeToHtml := func(t *reflect.StructField, typeIndex, depth int) error {
 		// for now, we are error-ignorant
