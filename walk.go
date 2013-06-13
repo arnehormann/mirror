@@ -92,20 +92,20 @@ func (walker typeWalker) walk(t *reflect.StructField, visit VisitType) error {
 			}
 		case reflect.Func:
 			for i := t.NumOut() - 1; i >= 0; i-- {
-				r := t.Out(i)
-				typeIdx, known := walker.index(r)
+				ret := t.Out(i)
+				typeIdx, known := walker.index(ret)
 				stack = append(stack, stackNode{
-					&reflect.StructField{Type: r},
+					&reflect.StructField{Type: ret},
 					typeIdx,
 					depth,
 					known,
 				})
 			}
 			for i := t.NumIn() - 1; i >= 0; i-- {
-				a := t.In(i)
-				typeIdx, known := walker.index(a)
+				arg := t.In(i)
+				typeIdx, known := walker.index(arg)
 				stack = append(stack, stackNode{
-					&reflect.StructField{Type: a},
+					&reflect.StructField{Type: arg},
 					typeIdx,
 					depth,
 					known,
