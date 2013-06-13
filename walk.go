@@ -6,40 +6,41 @@ import (
 
 // VisitType processes type information.
 // It is called by Walk.
-// - typ is a field of a struct or a wrapped type (if len(typ.Index) == 0)
+// - typ is:
+//   - a wrapped type (if len(typ.Index) == 0)
+//   - an interface method (type.Index[0] < 0; ignore first value); this is clumsy...
+//   - a field of a struct
 // - typeIndex is the unique index of this type in the set types enountered during a walk
 // - depth counts the number of indirections used to get to this type from the root type
+//
+// - for a map, the key and the element types are visited
+// - for a function, the input argument types and output argument types are visited
+// - for an interface, all contained functions are visited
 type VisitType func(typ *reflect.StructField, typeIndex, depth int) error
 
-type typeWalker struct {
-	indices map[reflect.Type]int
-	types   []reflect.Type
-}
+type typeWalker map[reflect.Type]int
 
-func (walker *typeWalker) index(t reflect.Type) (int, bool) {
-	idx, known := walker.indices[t]
-	if known {
-		return idx, true
+func (walker typeWalker) index(t reflect.Type) (int, bool) {
+	idx, known := walker[t]
+	if !known {
+		idx = len(walker)
+		walker[t] = idx
 	}
-	idx = len(walker.types)
-	walker.indices[t] = idx
-	walker.types = append(walker.types, t)
-	return idx, false
+	return idx, known
 }
 
-func (walker *typeWalker) walk(t *reflect.StructField, visit VisitType) error {
+func (walker typeWalker) walk(t *reflect.StructField, visit VisitType) error {
 	if t == nil || visit == nil {
 		return nil
 	}
 	type stackNode struct {
 		field      *reflect.StructField
 		currentIdx int
-		parentIdx  int
 		depth      int
 		known      bool
 	}
 	idx, known := walker.index(t.Type)
-	stack := []stackNode{{t, idx, idx, 0, known}}
+	stack := []stackNode{{t, idx, 0, known}}
 	var node stackNode
 	for lastIdx := 0; lastIdx >= 0; lastIdx = len(stack) - 1 {
 		stack, node = stack[:lastIdx], stack[lastIdx]
@@ -52,7 +53,6 @@ func (walker *typeWalker) walk(t *reflect.StructField, visit VisitType) error {
 			continue
 		}
 		// follow container types
-		parentIdx := node.currentIdx
 		depth := node.depth + 1
 		switch t := node.field.Type; t.Kind() {
 		case reflect.Struct:
@@ -61,13 +61,56 @@ func (walker *typeWalker) walk(t *reflect.StructField, visit VisitType) error {
 				// add each field from struct to stack. As this is LIFO, start with the last field.
 				field := t.Field(i)
 				typeIdx, known := walker.index(field.Type)
-				stack = append(stack, stackNode{&field, typeIdx, parentIdx, depth, known})
+				stack = append(stack, stackNode{&field, typeIdx, depth, known})
 			}
-		case reflect.Ptr, reflect.Array, reflect.Slice, reflect.Map, reflect.Chan:
+		case reflect.Ptr, reflect.Array, reflect.Slice, reflect.Chan, reflect.Map:
 			// add element to stack
 			field := &reflect.StructField{Type: t.Elem()}
 			typeIdx, known := walker.index(field.Type)
-			stack = append(stack, stackNode{field, typeIdx, parentIdx, depth, known})
+			stack = append(stack, stackNode{field, typeIdx, depth, known})
+			if t.Kind() == reflect.Map {
+				// add key to stack
+				field := &reflect.StructField{Type: t.Key()}
+				typeIdx, known := walker.index(field.Type)
+				stack = append(stack, stackNode{field, typeIdx, depth, known})
+			}
+		case reflect.Interface:
+			for i := t.NumMethod() - 1; i >= 0; i-- {
+				m := t.Method(i)
+				typeIdx, known := walker.index(m.Type)
+				stack = append(stack, stackNode{
+					&reflect.StructField{
+						Name:    m.Name,
+						PkgPath: m.PkgPath,
+						Type:    m.Type,
+						Index:   []int{-1, m.Index},
+					},
+					typeIdx,
+					depth,
+					known,
+				})
+			}
+		case reflect.Func:
+			for i := t.NumOut() - 1; i >= 0; i-- {
+				r := t.Out(i)
+				typeIdx, known := walker.index(r)
+				stack = append(stack, stackNode{
+					&reflect.StructField{Type: r},
+					typeIdx,
+					depth,
+					known,
+				})
+			}
+			for i := t.NumIn() - 1; i >= 0; i-- {
+				a := t.In(i)
+				typeIdx, known := walker.index(a)
+				stack = append(stack, stackNode{
+					&reflect.StructField{Type: a},
+					typeIdx,
+					depth,
+					known,
+				})
+			}
 		}
 	}
 	return nil
@@ -77,9 +120,7 @@ func (walker *typeWalker) walk(t *reflect.StructField, visit VisitType) error {
 // It will follow struct fields, pointers, arrays, slices, maps and chans
 // and call visit on each element.
 // Walk will only follow into types at their very first occurence during this walk.
-// Function handling for reflect.Interface and reflect.Method has to be done by visit.
-// Map key types and function argument and return types are not processed.
 func Walk(t reflect.Type, visit VisitType) error {
-	walker := &typeWalker{indices: make(map[reflect.Type]int)}
+	walker := make(typeWalker)
 	return walker.walk(&reflect.StructField{Type: t}, visit)
 }
